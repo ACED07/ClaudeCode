@@ -1,6 +1,6 @@
 # ClaudeCode / EDMS — working conventions
 
-**Last updated:** 2026-09-15 16:04 +0800
+**Last updated:** 2026-09-15 16:11 +0800
 
 Workspace for investigating and fixing EDMS bronze-to-silver ingestion on Azure Synapse
 (storage `saedmsprdizadls01` / `saedmsuatizadls01`). It holds **exported copies** of
@@ -53,6 +53,11 @@ Don't read a shelf cover-to-cover — this table plus your task decide what to o
   installed — `pip install pandas openpyxl` before a local simulation.
 - `core.autocrlf=true`: blobs are LF, the working copy is CRLF. Judge edits by
   `git diff --stat`, not by file size.
+- **`CLAUDE.md` and `AGENTS.md` (for Codex) are the same file, in every folder.** Hooks in
+  `.githooks/` keep each pair identical: `pre-commit` copies whichever one you staged onto the
+  other and stages it; `pre-push` refuses a commit where a pair differs or is incomplete. They
+  run through shims in `.git/hooks/`. On a fresh clone, run `git config core.hooksPath .githooks`
+  once. If you edit both files differently in one commit, the hook stops — make them match.
 
 ## Keeping these context files current
 

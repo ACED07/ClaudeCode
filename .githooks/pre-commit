@@ -1,0 +1,48 @@
+#!/bin/sh
+# Keep CLAUDE.md (Claude Code) and AGENTS.md (Codex) identical in every directory.
+#
+# If only one file of a pair is staged, its staged content is copied to the other
+# and staged too. If both are staged and differ, the commit stops so you can
+# reconcile them by hand.
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '(^|/)(CLAUDE|AGENTS)\.md$')
+[ -z "$staged" ] && exit 0
+
+dirs=$(printf '%s\n' "$staged" | sed -E 's#(^|/)(CLAUDE|AGENTS)\.md$##' | sort -u)
+status=0
+
+while IFS= read -r d; do
+    if [ -n "$d" ]; then c="$d/CLAUDE.md"; a="$d/AGENTS.md"; else c="CLAUDE.md"; a="AGENTS.md"; fi
+
+    c_staged=$(git diff --cached --name-only -- "$c")
+    a_staged=$(git diff --cached --name-only -- "$a")
+
+    if [ -n "$c_staged" ] && [ -n "$a_staged" ]; then
+        if [ "$(git rev-parse ":$c")" != "$(git rev-parse ":$a")" ]; then
+            echo "pre-commit: $c and $a are both staged but differ. Make them identical, then commit again." >&2
+            status=1
+        fi
+        continue
+    fi
+
+    if [ -n "$c_staged" ]; then src=$c; dst=$a; else src=$a; dst=$c; fi
+
+    # Syncing overwrites the working copy of $dst, so don't clobber edits that aren't staged.
+    if [ -e "$dst" ] && ! git diff --quiet -- "$dst"; then
+        echo "pre-commit: $dst has unstaged edits, so it can't be synced from $src. Stage or discard them first." >&2
+        status=1
+        continue
+    fi
+
+    # Write the staged blob through $dst's own checkout filters (line endings), then stage it.
+    if git cat-file --filters --path="$dst" "$(git rev-parse ":$src")" > "$dst" && git add -- "$dst"; then
+        echo "pre-commit: synced $src -> $dst"
+    else
+        echo "pre-commit: failed to sync $src -> $dst" >&2
+        status=1
+    fi
+done <<EOF
+$dirs
+EOF
+
+exit $status
