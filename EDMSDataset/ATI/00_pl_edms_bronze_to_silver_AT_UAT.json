@@ -1,0 +1,599 @@
+{
+    "name": "00_pl_edms_bronze_to_silver_AT",
+    "properties": {
+        "activities": [
+            {
+                "name": "00_pl_edms_bronze_to_silver",
+                "type": "ExecutePipeline",
+                "dependsOn": [
+                    {
+                        "activity": "ForEach2",
+                        "dependencyConditions": [
+                            "Completed"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "pipeline": {
+                        "referenceName": "00_pl_edms_bronze_to_silver",
+                        "type": "PipelineReference"
+                    },
+                    "waitOnCompletion": true,
+                    "parameters": {
+                        "p_datalake_group": {
+                            "value": "@pipeline().parameters.p_datalake_group",
+                            "type": "Expression"
+                        }
+                    }
+                }
+            },
+            {
+                "name": "get-config",
+                "type": "Lookup",
+                "dependsOn": [
+                    {
+                        "activity": "ForEach Worksheet",
+                        "dependencyConditions": [
+                            "Completed"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "SqlPoolSource",
+                        "sqlReaderQuery": {
+                            "value": "SELECT DISTINCT \n    bronze_container,\n    bronze_landing_path,\n    bronze_archive_path,\n    source_name,\n    silver_schema_mapping,\n    silver_mandatory,\n    dynamic_data_range\nFROM config.ETL_Lakehouse_Config\nWHERE datalake_group = '@{pipeline().parameters.p_datalake_group}'\nAND source_type = '.xlsx'",
+                            "type": "Expression"
+                        },
+                        "queryTimeout": "02:00:00"
+                    },
+                    "dataset": {
+                        "referenceName": "ds_config_table",
+                        "type": "DatasetReference"
+                    },
+                    "firstRowOnly": false
+                }
+            },
+            {
+                "name": "ForEach2",
+                "type": "ForEach",
+                "dependsOn": [
+                    {
+                        "activity": "get-config",
+                        "dependencyConditions": [
+                            "Completed"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@activity('get-config').output.value",
+                        "type": "Expression"
+                    },
+                    "batchCount": 1,
+                    "activities": [
+                        {
+                            "name": "check-dynamic-data-range",
+                            "type": "IfCondition",
+                            "dependsOn": [],
+                            "userProperties": [],
+                            "typeProperties": {
+                                "expression": {
+                                    "value": "@greater(coalesce(item().dynamic_data_range, 0), 0)",
+                                    "type": "Expression"
+                                },
+                                "ifFalseActivities": [
+                                    {
+                                        "name": "00_remove_invalid_headers_xlsx_standard",
+                                        "type": "SynapseNotebook",
+                                        "dependsOn": [],
+                                        "policy": {
+                                            "timeout": "0.12:00:00",
+                                            "retry": 0,
+                                            "retryIntervalInSeconds": 30,
+                                            "secureOutput": false,
+                                            "secureInput": false
+                                        },
+                                        "userProperties": [],
+                                        "typeProperties": {
+                                            "notebook": {
+                                                "referenceName": "00_remove_invalid_headers_xlsx",
+                                                "type": "NotebookReference"
+                                            },
+                                            "parameters": {
+                                                "p_bronze_account": {
+                                                    "value": {
+                                                        "value": "@pipeline().parameters.p_bronze_account",
+                                                        "type": "Expression"
+                                                    },
+                                                    "type": "string"
+                                                },
+                                                "p_bronze_container_src": {
+                                                    "value": {
+                                                        "value": "@concat(item().bronze_container,'/',item().bronze_landing_path)",
+                                                        "type": "Expression"
+                                                    },
+                                                    "type": "string"
+                                                },
+                                                "p_bronze_container_dst": {
+                                                    "value": {
+                                                        "value": "@concat(item().bronze_container,'/',item().bronze_landing_path)",
+                                                        "type": "Expression"
+                                                    },
+                                                    "type": "string"
+                                                },
+                                                "p_bronze_container_arch": {
+                                                    "value": {
+                                                        "value": "@concat(item().bronze_container,'/',item().bronze_archive_path)",
+                                                        "type": "Expression"
+                                                    },
+                                                    "type": "string"
+                                                },
+                                                "p_source_name": {
+                                                    "value": {
+                                                        "value": "@item().source_name",
+                                                        "type": "Expression"
+                                                    },
+                                                    "type": "string"
+                                                },
+                                                "secret_name": {
+                                                    "value": {
+                                                        "value": "@pipeline().parameters.secret_name",
+                                                        "type": "Expression"
+                                                    },
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "snapshot": true,
+                                            "sparkPool": {
+                                                "referenceName": "aspooledmsuat03",
+                                                "type": "BigDataPoolReference"
+                                            },
+                                            "executorSize": "Small",
+                                            "conf": {
+                                                "spark.dynamicAllocation.enabled": null,
+                                                "spark.dynamicAllocation.minExecutors": null,
+                                                "spark.dynamicAllocation.maxExecutors": null
+                                            },
+                                            "driverSize": "Small",
+                                            "numExecutors": null
+                                        }
+                                    }
+                                ],
+                                "ifTrueActivities": [
+                                    {
+                                        "name": "00_remove_invalid_headers_xlsx_dynamic",
+                                        "type": "SynapseNotebook",
+                                        "dependsOn": [],
+                                        "policy": {
+                                            "timeout": "0.12:00:00",
+                                            "retry": 0,
+                                            "retryIntervalInSeconds": 30,
+                                            "secureOutput": false,
+                                            "secureInput": false
+                                        },
+                                        "userProperties": [],
+                                        "typeProperties": {
+                                            "notebook": {
+                                                "referenceName": "00_remove_invalid_headers_xlsx_dynamic",
+                                                "type": "NotebookReference"
+                                            },
+                                            "parameters": {
+                                                "p_bronze_account": {
+                                                    "value": {
+                                                        "value": "@pipeline().parameters.p_bronze_account",
+                                                        "type": "Expression"
+                                                    },
+                                                    "type": "string"
+                                                },
+                                                "p_bronze_container_src": {
+                                                    "value": {
+                                                        "value": "@concat(item().bronze_container,'/',item().bronze_landing_path)",
+                                                        "type": "Expression"
+                                                    },
+                                                    "type": "string"
+                                                },
+                                                "p_bronze_container_dst": {
+                                                    "value": {
+                                                        "value": "@concat(item().bronze_container,'/',item().bronze_landing_path)",
+                                                        "type": "Expression"
+                                                    },
+                                                    "type": "string"
+                                                },
+                                                "p_bronze_container_arch": {
+                                                    "value": {
+                                                        "value": "@concat(item().bronze_container,'/',item().bronze_archive_path)",
+                                                        "type": "Expression"
+                                                    },
+                                                    "type": "string"
+                                                },
+                                                "p_source_name": {
+                                                    "value": {
+                                                        "value": "@item().source_name",
+                                                        "type": "Expression"
+                                                    },
+                                                    "type": "string"
+                                                },
+                                                "p_silver_schema_mapping": {
+                                                    "value": {
+                                                        "value": "@item().silver_schema_mapping",
+                                                        "type": "Expression"
+                                                    },
+                                                    "type": "string"
+                                                },
+                                                "p_silver_mandatory_columns": {
+                                                    "value": {
+                                                        "value": "@item().silver_mandatory",
+                                                        "type": "Expression"
+                                                    },
+                                                    "type": "string"
+                                                },
+                                                "p_dynamic_data_range": {
+                                                    "value": {
+                                                        "value": "@item().dynamic_data_range",
+                                                        "type": "Expression"
+                                                    },
+                                                    "type": "int"
+                                                },
+                                                "secret_name": {
+                                                    "value": {
+                                                        "value": "@pipeline().parameters.secret_name",
+                                                        "type": "Expression"
+                                                    },
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "snapshot": true,
+                                            "sparkPool": {
+                                                "referenceName": "aspooledmsuat03",
+                                                "type": "BigDataPoolReference"
+                                            },
+                                            "executorSize": "Small",
+                                            "conf": {
+                                                "spark.dynamicAllocation.enabled": null,
+                                                "spark.dynamicAllocation.minExecutors": null,
+                                                "spark.dynamicAllocation.maxExecutors": null
+                                            },
+                                            "driverSize": "Small",
+                                            "numExecutors": null
+                                        }
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "name": "get-config-decryption",
+                "type": "Lookup",
+                "state": "Inactive",
+                "onInactiveMarkAs": "Succeeded",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "SqlPoolSource",
+                        "sqlReaderQuery": {
+                            "value": "SELECT DISTINCT bronze_container,bronze_landing_path,bronze_archive_path\nFROM config.ETL_Lakehouse_Config\nWHERE datalake_group = '@{pipeline().parameters.p_datalake_group}'",
+                            "type": "Expression"
+                        },
+                        "queryTimeout": "02:00:00"
+                    },
+                    "dataset": {
+                        "referenceName": "ds_config_table",
+                        "type": "DatasetReference"
+                    },
+                    "firstRowOnly": false
+                }
+            },
+            {
+                "name": "ForEach1",
+                "type": "ForEach",
+                "state": "Inactive",
+                "onInactiveMarkAs": "Succeeded",
+                "dependsOn": [
+                    {
+                        "activity": "get-config-decryption",
+                        "dependencyConditions": [
+                            "Completed"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@activity('get-config-decryption').output.value",
+                        "type": "Expression"
+                    },
+                    "batchCount": 1,
+                    "activities": [
+                        {
+                            "name": "RunFileDecryption_SRG",
+                            "type": "SynapseNotebook",
+                            "state": "Inactive",
+                            "onInactiveMarkAs": "Succeeded",
+                            "dependsOn": [],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "notebook": {
+                                    "referenceName": "00_file_decryption",
+                                    "type": "NotebookReference"
+                                },
+                                "parameters": {
+                                    "p_bronze_account": {
+                                        "value": {
+                                            "value": "@pipeline().parameters.p_bronze_account",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_bronze_container_src": {
+                                        "value": {
+                                            "value": "@concat(item().bronze_container,'/',item().bronze_landing_path)",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_bronze_container_dst": {
+                                        "value": {
+                                            "value": "@concat(item().bronze_container,'/',item().bronze_landing_path)",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_bronze_container_arch": {
+                                        "value": {
+                                            "value": "@concat(item().bronze_container,'/',item().bronze_archive_path)",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "secret_name": {
+                                        "value": {
+                                            "value": "@pipeline().parameters.secret_name",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    }
+                                },
+                                "snapshot": true,
+                                "sparkPool": {
+                                    "referenceName": "aspooledmsuat03",
+                                    "type": "BigDataPoolReference"
+                                },
+                                "conf": {
+                                    "spark.dynamicAllocation.enabled": null,
+                                    "spark.dynamicAllocation.minExecutors": null,
+                                    "spark.dynamicAllocation.maxExecutors": null
+                                },
+                                "numExecutors": null
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "name": "get-config worksheet",
+                "type": "Lookup",
+                "dependsOn": [
+                    {
+                        "activity": "ForEach1",
+                        "dependencyConditions": [
+                            "Completed"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "source": {
+                        "type": "SqlPoolSource",
+                        "sqlReaderQuery": {
+                            "value": "SELECT DISTINCT bronze_container,bronze_landing_path,bronze_archive_path,\n    worksheet,original_source_name,date_format,date_normalization_enabled\nFROM config.ETL_Lakehouse_Config\nWHERE datalake_group = '@{pipeline().parameters.p_datalake_group}'\nAND source_type = '.xlsx' and flag=1",
+                            "type": "Expression"
+                        },
+                        "queryTimeout": "02:00:00"
+                    },
+                    "dataset": {
+                        "referenceName": "ds_config_table",
+                        "type": "DatasetReference"
+                    },
+                    "firstRowOnly": false
+                }
+            },
+            {
+                "name": "ForEach Worksheet",
+                "type": "ForEach",
+                "dependsOn": [
+                    {
+                        "activity": "get-config worksheet",
+                        "dependencyConditions": [
+                            "Completed"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "items": {
+                        "value": "@activity('get-config worksheet').output.value",
+                        "type": "Expression"
+                    },
+                    "batchCount": 1,
+                    "activities": [
+                        {
+                            "name": "00_split_excel_worksheets",
+                            "type": "SynapseNotebook",
+                            "dependsOn": [],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "notebook": {
+                                    "referenceName": "00_split_excel_worksheets",
+                                    "type": "NotebookReference"
+                                },
+                                "parameters": {
+                                    "p_bronze_account": {
+                                        "value": {
+                                            "value": "@pipeline().parameters.p_bronze_account",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_bronze_container_src": {
+                                        "value": {
+                                            "value": "@concat(item().bronze_container,'/',item().bronze_landing_path)",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_bronze_container_dst": {
+                                        "value": {
+                                            "value": "@concat(item().bronze_container,'/',item().bronze_landing_path)",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_bronze_container_arch": {
+                                        "value": {
+                                            "value": "@concat(item().bronze_container,'/',item().bronze_archive_path)",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "secret_name": {
+                                        "value": {
+                                            "value": "@pipeline().parameters.secret_name",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_worksheet": {
+                                        "value": {
+                                            "value": "@item().worksheet",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_original_source_name": {
+                                        "value": {
+                                            "value": "@item().original_source_name",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "fmt": {
+                                        "value": {
+                                            "value": "@item().date_format",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_date_normalization_enabled": {
+                                        "value": {
+                                            "value": "@item().date_normalization_enabled",
+                                            "type": "Expression"
+                                        },
+                                        "type": "bool"
+                                    }
+                                },
+                                "snapshot": true,
+                                "sparkPool": {
+                                    "referenceName": "aspooledmsuat03",
+                                    "type": "BigDataPoolReference"
+                                },
+                                "executorSize": "Small",
+                                "conf": {
+                                    "spark.dynamicAllocation.enabled": null,
+                                    "spark.dynamicAllocation.minExecutors": null,
+                                    "spark.dynamicAllocation.maxExecutors": null
+                                },
+                                "driverSize": "Small",
+                                "numExecutors": null
+                            }
+                        }
+                    ]
+                }
+            }
+        ],
+        "parameters": {
+            "p_bronze_account": {
+                "type": "string",
+                "defaultValue": "saedmsuatizadls01"
+            },
+            "p_bronze_container_src": {
+                "type": "string",
+                "defaultValue": "caas-edms-bronze/air transport/ati/raw"
+            },
+            "p_bronze_container_dst": {
+                "type": "string",
+                "defaultValue": "caas-edms-bronze/air transport/ati/raw"
+            },
+            "p_bronze_container_arch": {
+                "type": "string",
+                "defaultValue": "caas-edms-bronze/air transport/ati/archive"
+            },
+            "secret_name": {
+                "type": "string",
+                "defaultValue": "scr-edms-decrypt-pwd-esoms"
+            },
+            "p_datalake_group": {
+                "type": "string",
+                "defaultValue": "edms_at_ati"
+            },
+            "p_worksheet": {
+                "type": "string",
+                "defaultValue": "FC32A|Licence Holder Details|Application Log"
+            },
+            "p_original_source_name": {
+                "type": "string",
+                "defaultValue": "CAPELS"
+            }
+        },
+        "folder": {
+            "name": "05_EDMS Phase 3"
+        },
+        "annotations": [],
+        "lastPublishTime": "2026-05-26T05:16:57Z"
+    },
+    "type": "Microsoft.Synapse/workspaces/pipelines"
+}

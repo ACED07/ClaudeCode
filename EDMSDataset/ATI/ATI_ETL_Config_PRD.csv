@@ -1,0 +1,748 @@
+﻿datalake_flow_name,datalake_group,source_system,source_type,source_name,source_parameter,source_dependency_order,source_file_distribution,bronze_container,bronze_landing_path,bronze_archive_path,silver_container,silver_landing_path,silver_landing_name,silver_curated_path,silver_delta_db,silver_target,silver_key,skip_pk_validation,silver_mandatory,silver_scd_type,silver_schema_mapping,worksheet,flag,original_source_name,dynamic_data_range,date_normalization_enabled,date_format
+at - at_ati_airport_master,edms_at_ati,at,.xlsx,Airport_Mapping_Master,,1,single,caas-edms-bronze,air transport/ati/raw/,air transport/ati/archive/,caas-edms-silver,parquet-landing,at_ati_airport_master,parquet-curated,silver_delta,dlt_at_ati_airport_master,Code,N,"Code,Name,City,Country_Subregion,Country_Subregion_Name,CAAS_Regions",scd_type1,"{
+            ""type"": ""TabularTranslator"",
+            ""mappings"": [
+                {
+                    ""source"": {
+                        ""name"": ""Code"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Code"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Name"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Name"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""City"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""City"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Country / Subregion"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Country_Subregion"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Country / Subregion Name"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Country_Subregion_Name"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""CAAS Regions"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""CAAS_Regions"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                }",,,,,False,
+at - at_ati_city_links,edms_at_ati,at,.xlsx,ATI City Links,,1,single,caas-edms-bronze,air transport/ati/raw/,air transport/ati/archive/,caas-edms-silver,parquet-landing,at_ati_city_links,parquet-curated,silver_delta,dlt_at_ati_city_links,Airport_Code,N,"Airport_Code,Country_Name,City_Name",scd_type1_partition,"{
+            ""type"": ""TabularTranslator"",
+            ""mappings"": [
+                {
+                    ""source"": {
+                        ""name"": ""Airport Code"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Airport_Code"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Country Name"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Country_Name"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""City Name"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""City_Name"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""PaxCarrier(s)"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""PaxCarrier"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""PaxCarrier(s) Count"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""PaxCarrier_Count"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Pax for Cargo Carrier(s)"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Pax_For_Cargo_Carrier"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Pax for Cargo Carrier(s) Count"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Pax_For_Cargo_Carrier_Count"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Frt Carrier(s)"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Frt_Carrier"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Frt Carrier(s) Count"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Frt_Carrier_Count"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""OpsType_Pax"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""OpsType_Pax"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""OpsType_Frt"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""OpsType_Frt"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""OpsType_\nCodeshare"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""OpsType_Codeshare"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Region"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Region"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                }",,,,2,True,%d %b %y
+at - at_ati_airline_list,edms_at_ati,at,.xlsx,ATI Airline List,,1,single,caas-edms-bronze,air transport/ati/raw/,air transport/ati/archive/,caas-edms-silver,parquet-landing,at_ati_airline_list,parquet-curated,silver_delta,dlt_at_ati_airline_list,2_LETTER,N,"CARRIER,FSC_LCC,2_LETTER",scd_type1_partition,"{
+            ""type"": ""TabularTranslator"",
+            ""mappings"": [
+                {
+                    ""source"": {
+                        ""name"": ""CODE"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""CODE"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""CARRIER"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""CARRIER"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""FSC/LCC"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""FSC_LCC"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""2 LETTER"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""2_LETTER"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""3-LETTER"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""3_LETTER"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""CarrDOM"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""CarrDOM"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Region"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Region"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""DOP (LATEST)"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""DOP"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""TERMINAL"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""TERMINAL"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""GHA (Check-in)"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""GHA"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                }",,,,1,True,%d %b %y
+at - at_ati_pax_breakdown,edms_at_ati,at,.xlsx,ATI PAX_BREAKDOWN,,1,single,caas-edms-bronze,air transport/ati/raw/,air transport/ati/archive/,caas-edms-silver,parquet-landing,at_ati_pax_breakdown,parquet-curated,silver_delta,dlt_at_ati_pax_breakdown,,Y,"Airline,2_Code,CarrDom,Region,FSC_LCC,OpsType,Flight_No,ArrDep,City_Routing,Country_Routing,AC_Type,Serv_Type,PaxCap,Weekly_Flights,Total_PaxCap",scd_type1_partition,"{
+            ""type"": ""TabularTranslator"",
+            ""mappings"": [
+                {
+                    ""source"": {
+                        ""name"": ""Airline"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Airline"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""2 Code"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""2_Code"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""CarrDom"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""CarrDom"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Region"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Region"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""FSC/LCC"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""FSC_LCC"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""OpsType"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""OpsType"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Flight No"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Flight_No"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""ArrDep"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""ArrDep"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""ORG"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""ORG"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""LAST"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""LAST"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""SIN"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""SIN"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""NEXT"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""NEXT"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""DES"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""DES"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""City Routing"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""City_Routing"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Country Routing"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Country_Routing"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""AC Type"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""AC_Type"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Serv Type"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Serv_Type"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""PaxCap"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""PaxCap"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Weekly Flights"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Weekly_Flights"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Total PaxCap"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Total_PaxCap"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                }",PAX_BREAKDOWN|FREIGHTER_BREAKDOWN|Airline List|City Links,1,ATI,1,True,%d %b %y
+at - at_ati_freighter_breakdown,edms_at_ati,at,.xlsx,ATI FREIGHTER_BREAKDOWN,,1,single,caas-edms-bronze,air transport/ati/raw/,air transport/ati/archive/,caas-edms-silver,parquet-landing,at_ati_freighter_breakdown,parquet-curated,silver_delta,dlt_at_ati_freighter_breakdown,,Y,"Airline,2CODE,Arr,Arr_Flight,Arr_Route,Dep,Dep_Flight,Dep_Route,AC_Type,CargoCap,Weekly_Flights,Total_CargoCap",scd_type1_partition,"{
+            ""type"": ""TabularTranslator"",
+            ""mappings"": [
+                {
+                    ""source"": {
+                        ""name"": ""AIRLINE"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Airline"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""2CODE"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""2CODE"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Arr"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Arr"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""ArrFlight"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Arr_Flight"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Arrival Route"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Arr_Route"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Dep"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Dep"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""DepFlight"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Dep_Flight"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Departure Route"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Dep_Route"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""A/C Type"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""AC_Type"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""CargoCap"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""CargoCap"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Weekly Flights"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Weekly_Flights"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                },
+                {
+                    ""source"": {
+                        ""name"": ""Total CargoCap"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""String""
+                    },
+                    ""sink"": {
+                        ""name"": ""Total_CargoCap"",
+                        ""type"": ""String"",
+                        ""physicalType"": ""UTF8""
+                    }
+                }",,,,1,True,%d %b %y
