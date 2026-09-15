@@ -1,0 +1,2157 @@
+{
+    "name": "21_pl_edms_bronze_to_silver-excel_fileloop",
+    "properties": {
+        "activities": [
+            {
+                "name": "get_partition",
+                "type": "SynapseNotebook",
+                "dependsOn": [],
+                "policy": {
+                    "timeout": "0.12:00:00",
+                    "retry": 0,
+                    "retryIntervalInSeconds": 30,
+                    "secureOutput": false,
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "notebook": {
+                        "referenceName": "01_extract_partition_date",
+                        "type": "NotebookReference"
+                    },
+                    "parameters": {
+                        "p_source_name": {
+                            "value": {
+                                "value": "@pipeline().parameters.p_file_name",
+                                "type": "Expression"
+                            },
+                            "type": "string"
+                        }
+                    },
+                    "snapshot": true,
+                    "sparkPool": {
+                        "referenceName": "aspooledmsprd03",
+                        "type": "BigDataPoolReference"
+                    },
+                    "executorSize": "Small",
+                    "conf": {
+                        "spark.dynamicAllocation.enabled": null,
+                        "spark.dynamicAllocation.minExecutors": null,
+                        "spark.dynamicAllocation.maxExecutors": null
+                    },
+                    "driverSize": "Small",
+                    "numExecutors": null
+                }
+            },
+            {
+                "name": "if-no-file-partition",
+                "type": "IfCondition",
+                "dependsOn": [
+                    {
+                        "activity": "get_partition",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "expression": {
+                        "value": "@equals(activity('get_partition').output.status.Output.result.exitValue,'')",
+                        "type": "Expression"
+                    },
+                    "ifFalseActivities": [
+                        {
+                            "name": "extract_partition_token",
+                            "type": "SetVariable",
+                            "dependsOn": [],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "v_partition_token",
+                                "value": {
+                                    "value": "@activity('get_partition').output.status.Output.result.exitValue",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "copy-bronze-to-silver",
+                            "type": "Copy",
+                            "dependsOn": [
+                                {
+                                    "activity": "delete-from-silver_landing",
+                                    "dependencyConditions": [
+                                        "Completed"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "ExcelSource",
+                                    "storeSettings": {
+                                        "type": "AzureBlobFSReadSettings",
+                                        "recursive": true,
+                                        "enablePartitionDiscovery": false
+                                    }
+                                },
+                                "sink": {
+                                    "type": "ParquetSink",
+                                    "storeSettings": {
+                                        "type": "AzureBlobFSWriteSettings"
+                                    },
+                                    "formatSettings": {
+                                        "type": "ParquetWriteSettings"
+                                    }
+                                },
+                                "enableStaging": false,
+                                "translator": {
+                                    "value": "@json(pipeline().parameters.p_silver_schema_mapping)",
+                                    "type": "Expression"
+                                }
+                            },
+                            "inputs": [
+                                {
+                                    "referenceName": "ds_excel_source",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "filesystem_name": {
+                                            "value": "@pipeline().parameters.p_bronze_container",
+                                            "type": "Expression"
+                                        },
+                                        "directory_name": {
+                                            "value": "@pipeline().parameters.p_bronze_landing_path",
+                                            "type": "Expression"
+                                        },
+                                        "file_name": {
+                                            "value": "@pipeline().parameters.p_file_name",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ],
+                            "outputs": [
+                                {
+                                    "referenceName": "adlsfwdreamlakes001_target",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "filesystem_name": {
+                                            "value": "@pipeline().parameters.p_silver_container",
+                                            "type": "Expression"
+                                        },
+                                        "directory_name": {
+                                            "value": "@concat(pipeline().parameters.p_silver_landing_path,'/',pipeline().parameters.p_silver_landing_name,'/partition=',variables('v_partition_token'))",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "name": "copy-bronze-raw-to-archive",
+                            "type": "Copy",
+                            "dependsOn": [
+                                {
+                                    "activity": "copy-bronze-to-silver",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "BinarySource",
+                                    "storeSettings": {
+                                        "type": "AzureBlobFSReadSettings",
+                                        "recursive": true
+                                    },
+                                    "formatSettings": {
+                                        "type": "BinaryReadSettings"
+                                    }
+                                },
+                                "sink": {
+                                    "type": "BinarySink",
+                                    "storeSettings": {
+                                        "type": "AzureBlobFSWriteSettings"
+                                    }
+                                },
+                                "enableStaging": false
+                            },
+                            "inputs": [
+                                {
+                                    "referenceName": "ds_binary_source",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "filesystem_name": {
+                                            "value": "@pipeline().parameters.p_bronze_container",
+                                            "type": "Expression"
+                                        },
+                                        "directory_name": {
+                                            "value": "@pipeline().parameters.p_bronze_landing_path",
+                                            "type": "Expression"
+                                        },
+                                        "file_name": {
+                                            "value": "@pipeline().parameters.p_file_name",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ],
+                            "outputs": [
+                                {
+                                    "referenceName": "ds_binary_target",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "filesystem_name": {
+                                            "value": "@pipeline().parameters.p_bronze_container",
+                                            "type": "Expression"
+                                        },
+                                        "directory_name": {
+                                            "value": "@pipeline().parameters.p_bronze_archive_path",
+                                            "type": "Expression"
+                                        },
+                                        "file_name": {
+                                            "value": "@pipeline().parameters.p_file_name",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "name": "delete-from-raw",
+                            "type": "Delete",
+                            "dependsOn": [
+                                {
+                                    "activity": "copy-bronze-raw-to-archive",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "dataset": {
+                                    "referenceName": "ds_binary_source",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "filesystem_name": {
+                                            "value": "@pipeline().parameters.p_bronze_container",
+                                            "type": "Expression"
+                                        },
+                                        "directory_name": {
+                                            "value": "@pipeline().parameters.p_bronze_landing_path",
+                                            "type": "Expression"
+                                        },
+                                        "file_name": {
+                                            "value": "@pipeline().parameters.p_file_name",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                },
+                                "enableLogging": false,
+                                "storeSettings": {
+                                    "type": "AzureBlobFSReadSettings",
+                                    "recursive": true,
+                                    "enablePartitionDiscovery": false
+                                }
+                            }
+                        },
+                        {
+                            "name": "99_pl_job_log_4",
+                            "type": "ExecutePipeline",
+                            "dependsOn": [
+                                {
+                                    "activity": "copy-bronze-to-silver",
+                                    "dependencyConditions": [
+                                        "Failed"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "pipeline": {
+                                    "referenceName": "99_pl_job_log",
+                                    "type": "PipelineReference"
+                                },
+                                "waitOnCompletion": true,
+                                "parameters": {
+                                    "ErrorMsg": {
+                                        "value": "@replace(activity('copy-bronze-to-silver').output.errors[0].Message,'''','|')",
+                                        "type": "Expression"
+                                    },
+                                    "p_datalake_flow_name": {
+                                        "value": "@pipeline().parameters.p_datalake_flow_name",
+                                        "type": "Expression"
+                                    },
+                                    "p_source_name": {
+                                        "value": "@concat(pipeline().parameters.p_bronze_landing_path,pipeline().parameters.p_file_name)",
+                                        "type": "Expression"
+                                    },
+                                    "p_target_name": {
+                                        "value": "@replace(concat(pipeline().parameters.p_silver_landing_path,'/',pipeline().parameters.p_silver_landing_name,'/',pipeline().parameters.p_file_name),'.csv','.parquet')",
+                                        "type": "Expression"
+                                    },
+                                    "p_status": "fail",
+                                    "p_stage": "bronze"
+                                }
+                            }
+                        },
+                        {
+                            "name": "99_pl_job_log_5",
+                            "type": "ExecutePipeline",
+                            "dependsOn": [
+                                {
+                                    "activity": "copy-bronze-raw-to-archive",
+                                    "dependencyConditions": [
+                                        "Failed"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "pipeline": {
+                                    "referenceName": "99_pl_job_log",
+                                    "type": "PipelineReference"
+                                },
+                                "waitOnCompletion": true,
+                                "parameters": {
+                                    "ErrorMsg": {
+                                        "value": "@replace(activity('copy-bronze-raw-to-archive').output.errors[0].Message,'''','|')",
+                                        "type": "Expression"
+                                    },
+                                    "p_datalake_flow_name": {
+                                        "value": "@pipeline().parameters.p_datalake_flow_name",
+                                        "type": "Expression"
+                                    },
+                                    "p_source_name": {
+                                        "value": "@concat(pipeline().parameters.p_bronze_landing_path,pipeline().parameters.p_file_name)",
+                                        "type": "Expression"
+                                    },
+                                    "p_target_name": {
+                                        "value": "@concat(pipeline().parameters.p_bronze_archive_path,'/',pipeline().parameters.p_file_name)",
+                                        "type": "Expression"
+                                    },
+                                    "p_status": "fail",
+                                    "p_stage": "bronze"
+                                }
+                            }
+                        },
+                        {
+                            "name": "delete-from-silver_landing",
+                            "type": "Delete",
+                            "dependsOn": [
+                                {
+                                    "activity": "extract_partition_token",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "dataset": {
+                                    "referenceName": "ds_binary_delete",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "filesystem_name": {
+                                            "value": "@pipeline().parameters.p_silver_container",
+                                            "type": "Expression"
+                                        },
+                                        "directory_name": {
+                                            "value": "@concat(pipeline().parameters.p_silver_landing_path,'/',pipeline().parameters.p_silver_landing_name,'/partition=',variables('v_partition_token'))",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                },
+                                "enableLogging": false,
+                                "storeSettings": {
+                                    "type": "AzureBlobFSReadSettings",
+                                    "recursive": true,
+                                    "wildcardFileName": "*",
+                                    "enablePartitionDiscovery": false
+                                }
+                            }
+                        },
+                        {
+                            "name": "CheckDataValidation",
+                            "type": "SynapseNotebook",
+                            "dependsOn": [
+                                {
+                                    "activity": "delete-from-raw",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "notebook": {
+                                    "referenceName": "02_check_datavalidation",
+                                    "type": "NotebookReference"
+                                },
+                                "parameters": {
+                                    "p_source_name": {
+                                        "value": {
+                                            "value": "@pipeline().parameters.p_silver_landing_name",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_silver_account": {
+                                        "value": {
+                                            "value": "@pipeline().parameters.p_silver_account",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_silver_container": {
+                                        "value": {
+                                            "value": "@pipeline().parameters.p_silver_container",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_silver_landing_path": {
+                                        "value": {
+                                            "value": "@pipeline().parameters.p_silver_landing_path",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_partition_key": {
+                                        "value": {
+                                            "value": "@variables('v_partition_token')",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_silver_key": {
+                                        "value": {
+                                            "value": "@pipeline().parameters.p_silver_key",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_silver_mandatory": {
+                                        "value": {
+                                            "value": "@pipeline().parameters.p_silver_mandatory",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_skip_pk_validation": {
+                                        "value": {
+                                            "value": "@pipeline().parameters.p_skip_pk_validation",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    }
+                                },
+                                "snapshot": true,
+                                "sparkPool": {
+                                    "referenceName": "aspooledmsprd03",
+                                    "type": "BigDataPoolReference"
+                                },
+                                "executorSize": "Small",
+                                "conf": {
+                                    "spark.dynamicAllocation.enabled": true
+                                },
+                                "driverSize": "Small"
+                            }
+                        },
+                        {
+                            "name": "set-validdata-flag",
+                            "type": "SetVariable",
+                            "dependsOn": [
+                                {
+                                    "activity": "CheckDataValidation",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "v_validdata_flag",
+                                "value": {
+                                    "value": "@if(equals(activity('CheckDataValidation').output.status.Output.result.exitValue,''),'2','-2')",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "99_pl_job_log_6",
+                            "type": "ExecutePipeline",
+                            "dependsOn": [
+                                {
+                                    "activity": "CheckDataValidation",
+                                    "dependencyConditions": [
+                                        "Failed"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "pipeline": {
+                                    "referenceName": "99_pl_job_log",
+                                    "type": "PipelineReference"
+                                },
+                                "waitOnCompletion": true,
+                                "parameters": {
+                                    "ErrorMsg": {
+                                        "value": "@concat(activity('CheckDataValidation').output.status.Output.result.message,' \\n ',activity('CheckDataValidation').output.status.Output.result.error)",
+                                        "type": "Expression"
+                                    },
+                                    "p_datalake_flow_name": {
+                                        "value": "@pipeline().parameters.p_datalake_flow_name",
+                                        "type": "Expression"
+                                    },
+                                    "p_source_name": {
+                                        "value": "@pipeline().parameters.p_silver_landing_name",
+                                        "type": "Expression"
+                                    },
+                                    "p_target_name": {
+                                        "value": "@pipeline().parameters.p_silver_target",
+                                        "type": "Expression"
+                                    },
+                                    "p_status": "fail",
+                                    "p_stage": "silver"
+                                }
+                            }
+                        }
+                    ],
+                    "ifTrueActivities": [
+                        {
+                            "name": "copy-bronze-to-silver_np",
+                            "type": "Copy",
+                            "dependsOn": [
+                                {
+                                    "activity": "delete-from-silver_landing_np",
+                                    "dependencyConditions": [
+                                        "Completed"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "ExcelSource",
+                                    "storeSettings": {
+                                        "type": "AzureBlobFSReadSettings",
+                                        "recursive": true,
+                                        "enablePartitionDiscovery": false
+                                    }
+                                },
+                                "sink": {
+                                    "type": "ParquetSink",
+                                    "storeSettings": {
+                                        "type": "AzureBlobFSWriteSettings"
+                                    },
+                                    "formatSettings": {
+                                        "type": "ParquetWriteSettings"
+                                    }
+                                },
+                                "enableStaging": false,
+                                "translator": {
+                                    "value": "@json(pipeline().parameters.p_silver_schema_mapping)",
+                                    "type": "Expression"
+                                }
+                            },
+                            "inputs": [
+                                {
+                                    "referenceName": "ds_excel_source",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "filesystem_name": {
+                                            "value": "@pipeline().parameters.p_bronze_container",
+                                            "type": "Expression"
+                                        },
+                                        "directory_name": {
+                                            "value": "@pipeline().parameters.p_bronze_landing_path",
+                                            "type": "Expression"
+                                        },
+                                        "file_name": {
+                                            "value": "@pipeline().parameters.p_file_name",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ],
+                            "outputs": [
+                                {
+                                    "referenceName": "adlsfwdreamlakes001_target",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "filesystem_name": {
+                                            "value": "@pipeline().parameters.p_silver_container",
+                                            "type": "Expression"
+                                        },
+                                        "directory_name": {
+                                            "value": "@concat(pipeline().parameters.p_silver_landing_path,'/',pipeline().parameters.p_silver_landing_name)",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "name": "copy-bronze-raw-to-archive_np",
+                            "type": "Copy",
+                            "dependsOn": [
+                                {
+                                    "activity": "copy-bronze-to-silver_np",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "source": {
+                                    "type": "BinarySource",
+                                    "storeSettings": {
+                                        "type": "AzureBlobFSReadSettings",
+                                        "recursive": true
+                                    },
+                                    "formatSettings": {
+                                        "type": "BinaryReadSettings"
+                                    }
+                                },
+                                "sink": {
+                                    "type": "BinarySink",
+                                    "storeSettings": {
+                                        "type": "AzureBlobFSWriteSettings"
+                                    }
+                                },
+                                "enableStaging": false
+                            },
+                            "inputs": [
+                                {
+                                    "referenceName": "ds_binary_source",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "filesystem_name": {
+                                            "value": "@pipeline().parameters.p_bronze_container",
+                                            "type": "Expression"
+                                        },
+                                        "directory_name": {
+                                            "value": "@pipeline().parameters.p_bronze_landing_path",
+                                            "type": "Expression"
+                                        },
+                                        "file_name": {
+                                            "value": "@pipeline().parameters.p_file_name",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ],
+                            "outputs": [
+                                {
+                                    "referenceName": "ds_binary_target",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "filesystem_name": {
+                                            "value": "@pipeline().parameters.p_bronze_container",
+                                            "type": "Expression"
+                                        },
+                                        "directory_name": {
+                                            "value": "@pipeline().parameters.p_bronze_archive_path",
+                                            "type": "Expression"
+                                        },
+                                        "file_name": {
+                                            "value": "@pipeline().parameters.p_file_name",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "name": "delete-from-raw_np",
+                            "type": "Delete",
+                            "dependsOn": [
+                                {
+                                    "activity": "copy-bronze-raw-to-archive_np",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "dataset": {
+                                    "referenceName": "ds_binary_source",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "filesystem_name": {
+                                            "value": "@pipeline().parameters.p_bronze_container",
+                                            "type": "Expression"
+                                        },
+                                        "directory_name": {
+                                            "value": "@pipeline().parameters.p_bronze_landing_path",
+                                            "type": "Expression"
+                                        },
+                                        "file_name": {
+                                            "value": "@pipeline().parameters.p_file_name",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                },
+                                "enableLogging": false,
+                                "storeSettings": {
+                                    "type": "AzureBlobFSReadSettings",
+                                    "recursive": true,
+                                    "enablePartitionDiscovery": false
+                                }
+                            }
+                        },
+                        {
+                            "name": "99_pl_job_log",
+                            "type": "ExecutePipeline",
+                            "dependsOn": [
+                                {
+                                    "activity": "copy-bronze-to-silver_np",
+                                    "dependencyConditions": [
+                                        "Failed"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "pipeline": {
+                                    "referenceName": "99_pl_job_log",
+                                    "type": "PipelineReference"
+                                },
+                                "waitOnCompletion": true,
+                                "parameters": {
+                                    "ErrorMsg": {
+                                        "value": "@replace(activity('copy-bronze-to-silver_np').output.errors[0].Message,'''','|')",
+                                        "type": "Expression"
+                                    },
+                                    "p_datalake_flow_name": {
+                                        "value": "@pipeline().parameters.p_datalake_flow_name",
+                                        "type": "Expression"
+                                    },
+                                    "p_source_name": {
+                                        "value": "@concat(pipeline().parameters.p_bronze_landing_path,pipeline().parameters.p_file_name)",
+                                        "type": "Expression"
+                                    },
+                                    "p_target_name": {
+                                        "value": "@replace(concat(pipeline().parameters.p_silver_landing_path,'/',pipeline().parameters.p_silver_landing_name,'/',pipeline().parameters.p_file_name),'.csv','.parquet')",
+                                        "type": "Expression"
+                                    },
+                                    "p_status": "fail",
+                                    "p_stage": "bronze"
+                                }
+                            }
+                        },
+                        {
+                            "name": "99_pl_job_log_2",
+                            "type": "ExecutePipeline",
+                            "dependsOn": [
+                                {
+                                    "activity": "copy-bronze-raw-to-archive_np",
+                                    "dependencyConditions": [
+                                        "Failed"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "pipeline": {
+                                    "referenceName": "99_pl_job_log",
+                                    "type": "PipelineReference"
+                                },
+                                "waitOnCompletion": true,
+                                "parameters": {
+                                    "ErrorMsg": {
+                                        "value": "@replace(activity('copy-bronze-raw-to-archive_np').output.errors[0].Message,'''','|')",
+                                        "type": "Expression"
+                                    },
+                                    "p_datalake_flow_name": {
+                                        "value": "@pipeline().parameters.p_datalake_flow_name",
+                                        "type": "Expression"
+                                    },
+                                    "p_source_name": {
+                                        "value": "@concat(pipeline().parameters.p_bronze_landing_path,pipeline().parameters.p_file_name)",
+                                        "type": "Expression"
+                                    },
+                                    "p_target_name": {
+                                        "value": "@concat(pipeline().parameters.p_bronze_archive_path,'/',pipeline().parameters.p_file_name)",
+                                        "type": "Expression"
+                                    },
+                                    "p_status": "fail",
+                                    "p_stage": "bronze"
+                                }
+                            }
+                        },
+                        {
+                            "name": "delete-from-silver_landing_np",
+                            "type": "Delete",
+                            "dependsOn": [],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "dataset": {
+                                    "referenceName": "ds_binary_delete",
+                                    "type": "DatasetReference",
+                                    "parameters": {
+                                        "filesystem_name": {
+                                            "value": "@pipeline().parameters.p_silver_container",
+                                            "type": "Expression"
+                                        },
+                                        "directory_name": {
+                                            "value": "@concat(pipeline().parameters.p_silver_landing_path,'/',pipeline().parameters.p_silver_landing_name)",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                },
+                                "enableLogging": false,
+                                "storeSettings": {
+                                    "type": "AzureBlobFSReadSettings",
+                                    "recursive": true,
+                                    "wildcardFileName": "*",
+                                    "enablePartitionDiscovery": false
+                                }
+                            }
+                        },
+                        {
+                            "name": "CheckDataValidation_np",
+                            "type": "SynapseNotebook",
+                            "dependsOn": [
+                                {
+                                    "activity": "delete-from-raw_np",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "timeout": "0.12:00:00",
+                                "retry": 0,
+                                "retryIntervalInSeconds": 30,
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "notebook": {
+                                    "referenceName": "02_check_datavalidation_np",
+                                    "type": "NotebookReference"
+                                },
+                                "parameters": {
+                                    "p_source_name": {
+                                        "value": {
+                                            "value": "@pipeline().parameters.p_silver_landing_name",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_silver_account": {
+                                        "value": {
+                                            "value": "@pipeline().parameters.p_silver_account",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_silver_container": {
+                                        "value": {
+                                            "value": "@pipeline().parameters.p_silver_container",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_silver_landing_path": {
+                                        "value": {
+                                            "value": "@pipeline().parameters.p_silver_landing_path",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_silver_key": {
+                                        "value": {
+                                            "value": "@pipeline().parameters.p_silver_key",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_silver_mandatory": {
+                                        "value": {
+                                            "value": "@pipeline().parameters.p_silver_mandatory",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    },
+                                    "p_skip_pk_validation": {
+                                        "value": {
+                                            "value": "@pipeline().parameters.p_skip_pk_validation",
+                                            "type": "Expression"
+                                        },
+                                        "type": "string"
+                                    }
+                                },
+                                "snapshot": true,
+                                "sparkPool": {
+                                    "referenceName": "aspooledmsprd03",
+                                    "type": "BigDataPoolReference"
+                                },
+                                "executorSize": "Small",
+                                "conf": {
+                                    "spark.dynamicAllocation.enabled": true
+                                },
+                                "driverSize": "Small"
+                            }
+                        },
+                        {
+                            "name": "set-validdata-flag_np",
+                            "type": "SetVariable",
+                            "dependsOn": [
+                                {
+                                    "activity": "CheckDataValidation_np",
+                                    "dependencyConditions": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "secureOutput": false,
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "variableName": "v_validdata_flag",
+                                "value": {
+                                    "value": "@if(equals(activity('CheckDataValidation_np').output.status.Output.result.exitValue,''),'1','-1')",
+                                    "type": "Expression"
+                                }
+                            }
+                        },
+                        {
+                            "name": "99_pl_job_log_3a",
+                            "type": "ExecutePipeline",
+                            "dependsOn": [
+                                {
+                                    "activity": "CheckDataValidation_np",
+                                    "dependencyConditions": [
+                                        "Failed"
+                                    ]
+                                }
+                            ],
+                            "policy": {
+                                "secureInput": false
+                            },
+                            "userProperties": [],
+                            "typeProperties": {
+                                "pipeline": {
+                                    "referenceName": "99_pl_job_log",
+                                    "type": "PipelineReference"
+                                },
+                                "waitOnCompletion": true,
+                                "parameters": {
+                                    "ErrorMsg": {
+                                        "value": "@concat(activity('CheckDataValidation_np').output.status.Output.result.message,' \\n ',activity('CheckDataValidation_np').output.status.Output.result.error)",
+                                        "type": "Expression"
+                                    },
+                                    "p_datalake_flow_name": {
+                                        "value": "@pipeline().parameters.p_datalake_flow_name",
+                                        "type": "Expression"
+                                    },
+                                    "p_source_name": {
+                                        "value": "@pipeline().parameters.p_silver_landing_name",
+                                        "type": "Expression"
+                                    },
+                                    "p_target_name": {
+                                        "value": "@pipeline().parameters.p_silver_target",
+                                        "type": "Expression"
+                                    },
+                                    "p_status": "fail",
+                                    "p_stage": "silver"
+                                }
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "name": "if-existing-file",
+                "type": "IfCondition",
+                "dependsOn": [
+                    {
+                        "activity": "switch-on-validation",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "expression": {
+                        "value": "@and(variables('v_freshfile_flag'),greater(int(variables('v_validdata_flag')),0))",
+                        "type": "Expression"
+                    },
+                    "ifTrueActivities": [
+                        {
+                            "name": "Switch1",
+                            "type": "Switch",
+                            "dependsOn": [],
+                            "userProperties": [],
+                            "typeProperties": {
+                                "on": {
+                                    "value": "@pipeline().parameters.p_silver_scd_type",
+                                    "type": "Expression"
+                                },
+                                "cases": [
+                                    {
+                                        "value": "scd_type1_partition",
+                                        "activities": [
+                                            {
+                                                "name": "SCDType1",
+                                                "type": "SynapseNotebook",
+                                                "dependsOn": [],
+                                                "policy": {
+                                                    "timeout": "0.12:00:00",
+                                                    "retry": 0,
+                                                    "retryIntervalInSeconds": 30,
+                                                    "secureOutput": false,
+                                                    "secureInput": false
+                                                },
+                                                "userProperties": [],
+                                                "typeProperties": {
+                                                    "notebook": {
+                                                        "referenceName": "10_silver_delta_merge_scd_type1",
+                                                        "type": "NotebookReference"
+                                                    },
+                                                    "parameters": {
+                                                        "p_silver_account": {
+                                                            "value": {
+                                                                "value": "@pipeline().parameters.p_silver_account",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        },
+                                                        "p_silver_container": {
+                                                            "value": {
+                                                                "value": "@pipeline().parameters.p_silver_container",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        },
+                                                        "p_silver_landing_path": {
+                                                            "value": {
+                                                                "value": "@pipeline().parameters.p_silver_landing_path",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        },
+                                                        "p_silver_curated_path": {
+                                                            "value": {
+                                                                "value": "@pipeline().parameters.p_silver_curated_path",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        },
+                                                        "p_silver_schema": {
+                                                            "value": {
+                                                                "value": "@pipeline().parameters.p_silver_delta_db",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        },
+                                                        "p_silver_table": {
+                                                            "value": {
+                                                                "value": "@pipeline().parameters.p_silver_target",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        },
+                                                        "p_lake_db": {
+                                                            "value": {
+                                                                "value": "@pipeline().parameters.p_silver_delta_db",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        },
+                                                        "p_silver_key": {
+                                                            "value": {
+                                                                "value": "@pipeline().parameters.p_silver_key",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        },
+                                                        "p_source_name": {
+                                                            "value": {
+                                                                "value": "@pipeline().parameters.p_silver_landing_name",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        },
+                                                        "p_partition_key": {
+                                                            "value": {
+                                                                "value": "@variables('v_partition_token')",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        }
+                                                    },
+                                                    "snapshot": true,
+                                                    "sparkPool": {
+                                                        "referenceName": "aspooledmsprd03",
+                                                        "type": "BigDataPoolReference"
+                                                    },
+                                                    "executorSize": "Small",
+                                                    "conf": {
+                                                        "spark.dynamicAllocation.enabled": true
+                                                    },
+                                                    "driverSize": "Small"
+                                                }
+                                            },
+                                            {
+                                                "name": "99_pl_job_log_SCDType1",
+                                                "type": "ExecutePipeline",
+                                                "dependsOn": [
+                                                    {
+                                                        "activity": "SCDType1",
+                                                        "dependencyConditions": [
+                                                            "Failed"
+                                                        ]
+                                                    }
+                                                ],
+                                                "policy": {
+                                                    "secureInput": false
+                                                },
+                                                "userProperties": [],
+                                                "typeProperties": {
+                                                    "pipeline": {
+                                                        "referenceName": "99_pl_job_log",
+                                                        "type": "PipelineReference"
+                                                    },
+                                                    "waitOnCompletion": true,
+                                                    "parameters": {
+                                                        "ErrorMsg": {
+                                                            "value": "@concat(activity('SCDType1').output.status.Output.result.message,' \\n ',activity('SCDType1').output.status.Output.result.error)",
+                                                            "type": "Expression"
+                                                        },
+                                                        "p_datalake_flow_name": {
+                                                            "value": "@pipeline().parameters.p_datalake_flow_name",
+                                                            "type": "Expression"
+                                                        },
+                                                        "p_source_name": {
+                                                            "value": "@pipeline().parameters.p_silver_landing_name",
+                                                            "type": "Expression"
+                                                        },
+                                                        "p_target_name": {
+                                                            "value": "@pipeline().parameters.p_silver_target",
+                                                            "type": "Expression"
+                                                        },
+                                                        "p_status": "fail",
+                                                        "p_stage": "silver"
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    },
+                                    {
+                                        "value": "scd_type2",
+                                        "activities": [
+                                            {
+                                                "name": "SCDType2",
+                                                "type": "SynapseNotebook",
+                                                "dependsOn": [],
+                                                "policy": {
+                                                    "timeout": "0.12:00:00",
+                                                    "retry": 0,
+                                                    "retryIntervalInSeconds": 30,
+                                                    "secureOutput": false,
+                                                    "secureInput": false
+                                                },
+                                                "userProperties": [],
+                                                "typeProperties": {
+                                                    "notebook": {
+                                                        "referenceName": "10_silver_delta_merge_scd_type2",
+                                                        "type": "NotebookReference"
+                                                    },
+                                                    "parameters": {
+                                                        "p_silver_account": {
+                                                            "value": {
+                                                                "value": "@pipeline().parameters.p_silver_account",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        },
+                                                        "p_silver_container": {
+                                                            "value": {
+                                                                "value": "@pipeline().parameters.p_silver_container",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        },
+                                                        "p_silver_landing_path": {
+                                                            "value": {
+                                                                "value": "@pipeline().parameters.p_silver_landing_path",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        },
+                                                        "p_silver_curated_path": {
+                                                            "value": {
+                                                                "value": "@pipeline().parameters.p_silver_curated_path",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        },
+                                                        "p_silver_schema": {
+                                                            "value": {
+                                                                "value": "@pipeline().parameters.p_silver_delta_db",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        },
+                                                        "p_silver_table": {
+                                                            "value": {
+                                                                "value": "@pipeline().parameters.p_silver_target",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        },
+                                                        "p_lake_db": {
+                                                            "value": {
+                                                                "value": "@pipeline().parameters.p_silver_delta_db",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        },
+                                                        "p_silver_key": {
+                                                            "value": {
+                                                                "value": "@pipeline().parameters.p_silver_key",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        },
+                                                        "p_source_name": {
+                                                            "value": {
+                                                                "value": "@pipeline().parameters.p_silver_landing_name",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        },
+                                                        "p_partition_key": {
+                                                            "value": {
+                                                                "value": "@variables('v_partition_token')",
+                                                                "type": "Expression"
+                                                            },
+                                                            "type": "string"
+                                                        }
+                                                    },
+                                                    "snapshot": true,
+                                                    "sparkPool": {
+                                                        "referenceName": "aspooledmsprd03",
+                                                        "type": "BigDataPoolReference"
+                                                    },
+                                                    "executorSize": "Small",
+                                                    "conf": {
+                                                        "spark.dynamicAllocation.enabled": true
+                                                    },
+                                                    "driverSize": "Small"
+                                                }
+                                            },
+                                            {
+                                                "name": "99_pl_job_log_SCDType2",
+                                                "type": "ExecutePipeline",
+                                                "dependsOn": [
+                                                    {
+                                                        "activity": "SCDType2",
+                                                        "dependencyConditions": [
+                                                            "Failed"
+                                                        ]
+                                                    }
+                                                ],
+                                                "policy": {
+                                                    "secureInput": false
+                                                },
+                                                "userProperties": [],
+                                                "typeProperties": {
+                                                    "pipeline": {
+                                                        "referenceName": "99_pl_job_log",
+                                                        "type": "PipelineReference"
+                                                    },
+                                                    "waitOnCompletion": true,
+                                                    "parameters": {
+                                                        "ErrorMsg": {
+                                                            "value": "@concat(activity('SCDType2').output.status.Output.result.message,' \\n ',activity('SCDType2').output.status.Output.result.error)",
+                                                            "type": "Expression"
+                                                        },
+                                                        "p_datalake_flow_name": {
+                                                            "value": "@pipeline().parameters.p_datalake_flow_name",
+                                                            "type": "Expression"
+                                                        },
+                                                        "p_source_name": {
+                                                            "value": "@pipeline().parameters.p_silver_landing_name",
+                                                            "type": "Expression"
+                                                        },
+                                                        "p_target_name": {
+                                                            "value": "@pipeline().parameters.p_silver_target",
+                                                            "type": "Expression"
+                                                        },
+                                                        "p_status": "fail",
+                                                        "p_stage": "silver"
+                                                    }
+                                                }
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                }
+            },
+            {
+                "name": "switch-on-validation",
+                "type": "Switch",
+                "dependsOn": [
+                    {
+                        "activity": "if-no-file-partition",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "userProperties": [],
+                "typeProperties": {
+                    "on": {
+                        "value": "@variables('v_validdata_flag')",
+                        "type": "Expression"
+                    },
+                    "cases": [
+                        {
+                            "value": "1",
+                            "activities": [
+                                {
+                                    "name": "CheckDeltaTableCreation_np",
+                                    "type": "SynapseNotebook",
+                                    "dependsOn": [],
+                                    "policy": {
+                                        "timeout": "0.12:00:00",
+                                        "retry": 0,
+                                        "retryIntervalInSeconds": 30,
+                                        "secureOutput": false,
+                                        "secureInput": false
+                                    },
+                                    "userProperties": [],
+                                    "typeProperties": {
+                                        "notebook": {
+                                            "referenceName": "00_check_deltatable_existence_nonpartition",
+                                            "type": "NotebookReference"
+                                        },
+                                        "parameters": {
+                                            "p_source_name": {
+                                                "value": {
+                                                    "value": "@pipeline().parameters.p_silver_landing_name",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            },
+                                            "p_silver_account": {
+                                                "value": {
+                                                    "value": "@pipeline().parameters.p_silver_account",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            },
+                                            "p_silver_container": {
+                                                "value": {
+                                                    "value": "@pipeline().parameters.p_silver_container",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            },
+                                            "p_silver_landing_path": {
+                                                "value": {
+                                                    "value": "@pipeline().parameters.p_silver_landing_path",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            },
+                                            "p_silver_curated_path": {
+                                                "value": {
+                                                    "value": "@pipeline().parameters.p_silver_curated_path",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            },
+                                            "p_silver_schema": {
+                                                "value": {
+                                                    "value": "@pipeline().parameters.p_silver_delta_db",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            },
+                                            "p_silver_table": {
+                                                "value": {
+                                                    "value": "@pipeline().parameters.p_silver_target",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            },
+                                            "p_lake_db": {
+                                                "value": {
+                                                    "value": "@pipeline().parameters.p_silver_lakedb",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            },
+                                            "p_partition_key": {
+                                                "value": {
+                                                    "value": "@variables('v_partition_token')",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            },
+                                            "p_silver_scd_type": {
+                                                "value": {
+                                                    "value": "@pipeline().parameters.p_silver_scd_type",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            }
+                                        },
+                                        "snapshot": true,
+                                        "sparkPool": {
+                                            "referenceName": "aspooledmsprd03",
+                                            "type": "BigDataPoolReference"
+                                        },
+                                        "executorSize": "Small",
+                                        "conf": {
+                                            "spark.dynamicAllocation.enabled": true
+                                        },
+                                        "driverSize": "Small"
+                                    }
+                                },
+                                {
+                                    "name": "set-freshfile-flag-np",
+                                    "type": "SetVariable",
+                                    "dependsOn": [
+                                        {
+                                            "activity": "CheckDeltaTableCreation_np",
+                                            "dependencyConditions": [
+                                                "Succeeded"
+                                            ]
+                                        }
+                                    ],
+                                    "policy": {
+                                        "secureOutput": false,
+                                        "secureInput": false
+                                    },
+                                    "userProperties": [],
+                                    "typeProperties": {
+                                        "variableName": "v_freshfile_flag",
+                                        "value": {
+                                            "value": "@bool(activity('CheckDeltaTableCreation_np').output.status.Output.result.exitValue)",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                },
+                                {
+                                    "name": "99_pl_job_log_3",
+                                    "type": "ExecutePipeline",
+                                    "dependsOn": [
+                                        {
+                                            "activity": "CheckDeltaTableCreation_np",
+                                            "dependencyConditions": [
+                                                "Failed"
+                                            ]
+                                        }
+                                    ],
+                                    "policy": {
+                                        "secureInput": false
+                                    },
+                                    "userProperties": [],
+                                    "typeProperties": {
+                                        "pipeline": {
+                                            "referenceName": "99_pl_job_log",
+                                            "type": "PipelineReference"
+                                        },
+                                        "waitOnCompletion": true,
+                                        "parameters": {
+                                            "ErrorMsg": {
+                                                "value": "@concat(activity('CheckDeltaTableCreation_np').output.status.Output.result.message,' \\n ',activity('CheckDeltaTableCreation_np').output.status.Output.result.error)",
+                                                "type": "Expression"
+                                            },
+                                            "p_datalake_flow_name": {
+                                                "value": "@pipeline().parameters.p_datalake_flow_name",
+                                                "type": "Expression"
+                                            },
+                                            "p_source_name": {
+                                                "value": "@pipeline().parameters.p_silver_landing_name",
+                                                "type": "Expression"
+                                            },
+                                            "p_target_name": {
+                                                "value": "@pipeline().parameters.p_silver_target",
+                                                "type": "Expression"
+                                            },
+                                            "p_status": "fail",
+                                            "p_stage": "silver"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "value": "2",
+                            "activities": [
+                                {
+                                    "name": "CheckDeltaTableCreation",
+                                    "type": "SynapseNotebook",
+                                    "dependsOn": [],
+                                    "policy": {
+                                        "timeout": "0.12:00:00",
+                                        "retry": 0,
+                                        "retryIntervalInSeconds": 30,
+                                        "secureOutput": false,
+                                        "secureInput": false
+                                    },
+                                    "userProperties": [],
+                                    "typeProperties": {
+                                        "notebook": {
+                                            "referenceName": "00_check_deltatable_existence",
+                                            "type": "NotebookReference"
+                                        },
+                                        "parameters": {
+                                            "p_source_name": {
+                                                "value": {
+                                                    "value": "@pipeline().parameters.p_silver_landing_name",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            },
+                                            "p_silver_account": {
+                                                "value": {
+                                                    "value": "@pipeline().parameters.p_silver_account",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            },
+                                            "p_silver_container": {
+                                                "value": {
+                                                    "value": "@pipeline().parameters.p_silver_container",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            },
+                                            "p_silver_landing_path": {
+                                                "value": {
+                                                    "value": "@pipeline().parameters.p_silver_landing_path",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            },
+                                            "p_silver_curated_path": {
+                                                "value": {
+                                                    "value": "@pipeline().parameters.p_silver_curated_path",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            },
+                                            "p_silver_schema": {
+                                                "value": {
+                                                    "value": "@pipeline().parameters.p_silver_delta_db",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            },
+                                            "p_silver_table": {
+                                                "value": {
+                                                    "value": "@pipeline().parameters.p_silver_target",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            },
+                                            "p_lake_db": {
+                                                "value": {
+                                                    "value": "@pipeline().parameters.p_silver_lakedb",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            },
+                                            "p_partition_key": {
+                                                "value": {
+                                                    "value": "@variables('v_partition_token')",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            },
+                                            "p_silver_scd_type": {
+                                                "value": {
+                                                    "value": "@pipeline().parameters.p_silver_scd_type",
+                                                    "type": "Expression"
+                                                },
+                                                "type": "string"
+                                            }
+                                        },
+                                        "snapshot": true,
+                                        "sparkPool": {
+                                            "referenceName": "aspooledmsprd03",
+                                            "type": "BigDataPoolReference"
+                                        },
+                                        "executorSize": "Small",
+                                        "conf": {
+                                            "spark.dynamicAllocation.enabled": true
+                                        },
+                                        "driverSize": "Small"
+                                    }
+                                },
+                                {
+                                    "name": "set-freshfile-flag",
+                                    "type": "SetVariable",
+                                    "dependsOn": [
+                                        {
+                                            "activity": "CheckDeltaTableCreation",
+                                            "dependencyConditions": [
+                                                "Succeeded"
+                                            ]
+                                        }
+                                    ],
+                                    "policy": {
+                                        "secureOutput": false,
+                                        "secureInput": false
+                                    },
+                                    "userProperties": [],
+                                    "typeProperties": {
+                                        "variableName": "v_freshfile_flag",
+                                        "value": {
+                                            "value": "@bool(activity('CheckDeltaTableCreation').output.status.Output.result.exitValue)",
+                                            "type": "Expression"
+                                        }
+                                    }
+                                },
+                                {
+                                    "name": "99_pl_job_log_7",
+                                    "type": "ExecutePipeline",
+                                    "dependsOn": [
+                                        {
+                                            "activity": "CheckDeltaTableCreation",
+                                            "dependencyConditions": [
+                                                "Failed"
+                                            ]
+                                        }
+                                    ],
+                                    "policy": {
+                                        "secureInput": false
+                                    },
+                                    "userProperties": [],
+                                    "typeProperties": {
+                                        "pipeline": {
+                                            "referenceName": "99_pl_job_log",
+                                            "type": "PipelineReference"
+                                        },
+                                        "waitOnCompletion": true,
+                                        "parameters": {
+                                            "ErrorMsg": {
+                                                "value": "@concat(activity('CheckDeltaTableCreation').output.status.Output.result.message,' \\n ',activity('CheckDeltaTableCreation').output.status.Output.result.error)",
+                                                "type": "Expression"
+                                            },
+                                            "p_datalake_flow_name": {
+                                                "value": "@pipeline().parameters.p_datalake_flow_name",
+                                                "type": "Expression"
+                                            },
+                                            "p_source_name": {
+                                                "value": "@pipeline().parameters.p_silver_landing_name",
+                                                "type": "Expression"
+                                            },
+                                            "p_target_name": {
+                                                "value": "@pipeline().parameters.p_silver_target",
+                                                "type": "Expression"
+                                            },
+                                            "p_status": "fail",
+                                            "p_stage": "silver"
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "value": "-1",
+                            "activities": [
+                                {
+                                    "name": "copy-silver-landing-to-invalid-folder_np",
+                                    "type": "Copy",
+                                    "dependsOn": [],
+                                    "policy": {
+                                        "timeout": "0.12:00:00",
+                                        "retry": 0,
+                                        "retryIntervalInSeconds": 30,
+                                        "secureOutput": false,
+                                        "secureInput": false
+                                    },
+                                    "userProperties": [],
+                                    "typeProperties": {
+                                        "source": {
+                                            "type": "BinarySource",
+                                            "storeSettings": {
+                                                "type": "AzureBlobFSReadSettings",
+                                                "recursive": true
+                                            },
+                                            "formatSettings": {
+                                                "type": "BinaryReadSettings"
+                                            }
+                                        },
+                                        "sink": {
+                                            "type": "BinarySink",
+                                            "storeSettings": {
+                                                "type": "AzureBlobFSWriteSettings"
+                                            }
+                                        },
+                                        "enableStaging": false
+                                    },
+                                    "inputs": [
+                                        {
+                                            "referenceName": "ds_binary_source",
+                                            "type": "DatasetReference",
+                                            "parameters": {
+                                                "filesystem_name": {
+                                                    "value": "@pipeline().parameters.p_silver_container",
+                                                    "type": "Expression"
+                                                },
+                                                "directory_name": {
+                                                    "value": "@concat(pipeline().parameters.p_silver_landing_path,'/',pipeline().parameters.p_silver_landing_name)",
+                                                    "type": "Expression"
+                                                },
+                                                "file_name": {
+                                                    "value": "@replace(pipeline().parameters.p_file_name,pipeline().parameters.p_source_type,concat(pipeline().parameters.p_source_type,'.parquet'))",
+                                                    "type": "Expression"
+                                                }
+                                            }
+                                        }
+                                    ],
+                                    "outputs": [
+                                        {
+                                            "referenceName": "ds_binary_target",
+                                            "type": "DatasetReference",
+                                            "parameters": {
+                                                "filesystem_name": {
+                                                    "value": "@pipeline().parameters.p_silver_container",
+                                                    "type": "Expression"
+                                                },
+                                                "directory_name": {
+                                                    "value": "@concat(variables('v_silver_invalid_path'),'/',pipeline().parameters.p_silver_landing_name)",
+                                                    "type": "Expression"
+                                                },
+                                                "file_name": {
+                                                    "value": "@replace(pipeline().parameters.p_file_name,pipeline().parameters.p_source_type,concat(pipeline().parameters.p_source_type,'.parquet'))",
+                                                    "type": "Expression"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                },
+                                {
+                                    "name": "delete-from-raw_np_copy1",
+                                    "type": "Delete",
+                                    "dependsOn": [
+                                        {
+                                            "activity": "copy-silver-landing-to-invalid-folder_np",
+                                            "dependencyConditions": [
+                                                "Succeeded"
+                                            ]
+                                        }
+                                    ],
+                                    "policy": {
+                                        "timeout": "0.12:00:00",
+                                        "retry": 0,
+                                        "retryIntervalInSeconds": 30,
+                                        "secureOutput": false,
+                                        "secureInput": false
+                                    },
+                                    "userProperties": [],
+                                    "typeProperties": {
+                                        "dataset": {
+                                            "referenceName": "ds_binary_source",
+                                            "type": "DatasetReference",
+                                            "parameters": {
+                                                "filesystem_name": {
+                                                    "value": "@pipeline().parameters.p_silver_container",
+                                                    "type": "Expression"
+                                                },
+                                                "directory_name": {
+                                                    "value": "@concat(pipeline().parameters.p_silver_landing_path,'/',pipeline().parameters.p_silver_landing_name)",
+                                                    "type": "Expression"
+                                                },
+                                                "file_name": {
+                                                    "value": "@replace(pipeline().parameters.p_file_name,pipeline().parameters.p_source_type,concat(pipeline().parameters.p_source_type,'.parquet'))",
+                                                    "type": "Expression"
+                                                }
+                                            }
+                                        },
+                                        "enableLogging": false,
+                                        "storeSettings": {
+                                            "type": "AzureBlobFSReadSettings",
+                                            "recursive": true,
+                                            "enablePartitionDiscovery": false
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "value": "-2",
+                            "activities": [
+                                {
+                                    "name": "copy-silver-landing-to-invalid-folder",
+                                    "type": "Copy",
+                                    "dependsOn": [],
+                                    "policy": {
+                                        "timeout": "0.12:00:00",
+                                        "retry": 0,
+                                        "retryIntervalInSeconds": 30,
+                                        "secureOutput": false,
+                                        "secureInput": false
+                                    },
+                                    "userProperties": [],
+                                    "typeProperties": {
+                                        "source": {
+                                            "type": "BinarySource",
+                                            "storeSettings": {
+                                                "type": "AzureBlobFSReadSettings",
+                                                "recursive": true
+                                            },
+                                            "formatSettings": {
+                                                "type": "BinaryReadSettings"
+                                            }
+                                        },
+                                        "sink": {
+                                            "type": "BinarySink",
+                                            "storeSettings": {
+                                                "type": "AzureBlobFSWriteSettings"
+                                            }
+                                        },
+                                        "enableStaging": false
+                                    },
+                                    "inputs": [
+                                        {
+                                            "referenceName": "ds_binary_source",
+                                            "type": "DatasetReference",
+                                            "parameters": {
+                                                "filesystem_name": {
+                                                    "value": "@pipeline().parameters.p_silver_container",
+                                                    "type": "Expression"
+                                                },
+                                                "directory_name": {
+                                                    "value": "@concat(pipeline().parameters.p_silver_landing_path,'/',pipeline().parameters.p_silver_landing_name,'/partition=',variables('v_partition_token'))",
+                                                    "type": "Expression"
+                                                },
+                                                "file_name": {
+                                                    "value": "@replace(pipeline().parameters.p_file_name,pipeline().parameters.p_source_type,concat(pipeline().parameters.p_source_type,'.parquet'))",
+                                                    "type": "Expression"
+                                                }
+                                            }
+                                        }
+                                    ],
+                                    "outputs": [
+                                        {
+                                            "referenceName": "ds_binary_target",
+                                            "type": "DatasetReference",
+                                            "parameters": {
+                                                "filesystem_name": {
+                                                    "value": "@pipeline().parameters.p_silver_container",
+                                                    "type": "Expression"
+                                                },
+                                                "directory_name": {
+                                                    "value": "@concat(variables('v_silver_invalid_path'),'/',pipeline().parameters.p_silver_landing_name,'/partition=',variables('v_partition_token'))",
+                                                    "type": "Expression"
+                                                },
+                                                "file_name": {
+                                                    "value": "@replace(pipeline().parameters.p_file_name,pipeline().parameters.p_source_type,concat(pipeline().parameters.p_source_type,'.parquet'))",
+                                                    "type": "Expression"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                },
+                                {
+                                    "name": "delete-from-landing",
+                                    "type": "Delete",
+                                    "dependsOn": [
+                                        {
+                                            "activity": "copy-silver-landing-to-invalid-folder",
+                                            "dependencyConditions": [
+                                                "Succeeded"
+                                            ]
+                                        }
+                                    ],
+                                    "policy": {
+                                        "timeout": "0.12:00:00",
+                                        "retry": 0,
+                                        "retryIntervalInSeconds": 30,
+                                        "secureOutput": false,
+                                        "secureInput": false
+                                    },
+                                    "userProperties": [],
+                                    "typeProperties": {
+                                        "dataset": {
+                                            "referenceName": "ds_binary_source",
+                                            "type": "DatasetReference",
+                                            "parameters": {
+                                                "filesystem_name": {
+                                                    "value": "@pipeline().parameters.p_silver_container",
+                                                    "type": "Expression"
+                                                },
+                                                "directory_name": {
+                                                    "value": "@concat(pipeline().parameters.p_silver_landing_path,'/',pipeline().parameters.p_silver_landing_name,'/partition=',variables('v_partition_token'))",
+                                                    "type": "Expression"
+                                                },
+                                                "file_name": {
+                                                    "value": "@replace(pipeline().parameters.p_file_name,pipeline().parameters.p_source_type,concat(pipeline().parameters.p_source_type,'.parquet'))",
+                                                    "type": "Expression"
+                                                }
+                                            }
+                                        },
+                                        "enableLogging": false,
+                                        "storeSettings": {
+                                            "type": "AzureBlobFSReadSettings",
+                                            "recursive": true,
+                                            "enablePartitionDiscovery": false
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            },
+            {
+                "name": "call_pl_final_check",
+                "type": "ExecutePipeline",
+                "dependsOn": [
+                    {
+                        "activity": "if-existing-file",
+                        "dependencyConditions": [
+                            "Succeeded"
+                        ]
+                    }
+                ],
+                "policy": {
+                    "secureInput": false
+                },
+                "userProperties": [],
+                "typeProperties": {
+                    "pipeline": {
+                        "referenceName": "25_pl_edms_bronze_to_silver-final_check",
+                        "type": "PipelineReference"
+                    },
+                    "waitOnCompletion": true,
+                    "parameters": {
+                        "p_valid_flag": {
+                            "value": "@variables('v_validdata_flag')",
+                            "type": "Expression"
+                        },
+                        "p_error_msg": {
+                            "value": "@coalesce(activity('CheckDataValidation_np')?.output.status.Output.result.exitValue,activity('CheckDataValidation')?.output.status.Output.result.exitValue)",
+                            "type": "Expression"
+                        },
+                        "p_datalake_flow_name": {
+                            "value": "@pipeline().parameters.p_datalake_flow_name",
+                            "type": "Expression"
+                        },
+                        "p_source_name": {
+                            "value": "@concat(pipeline().parameters.p_bronze_landing_path,pipeline().parameters.p_file_name)",
+                            "type": "Expression"
+                        },
+                        "p_target_name": {
+                            "value": "@pipeline().parameters.p_silver_target",
+                            "type": "Expression"
+                        }
+                    }
+                }
+            }
+        ],
+        "parameters": {
+            "p_bronze_container": {
+                "type": "string",
+                "defaultValue": "caas-edms-bronze"
+            },
+            "p_bronze_landing_path": {
+                "type": "string",
+                "defaultValue": "ATSS/RAW/"
+            },
+            "p_source_name": {
+                "type": "string",
+                "defaultValue": "ATSS_M_AIRLINE_OPERATOR"
+            },
+            "p_source_type": {
+                "type": "string",
+                "defaultValue": ".csv"
+            },
+            "p_silver_container": {
+                "type": "string",
+                "defaultValue": "caas-edms-silver"
+            },
+            "p_silver_landing_path": {
+                "type": "string",
+                "defaultValue": "parquet-landing"
+            },
+            "p_silver_curated_path": {
+                "type": "string",
+                "defaultValue": "parquet-curated"
+            },
+            "p_silver_schema_mapping": {
+                "type": "string",
+                "defaultValue": "'{         \"type\": \"TabularTranslator\",         \"mappings\": [             {                 \"source\": {                     \"name\": \"AIRLINE_OPERATOR_CODE\",                     \"type\": \"String\",                     \"physicalType\": \"String\"                 },                 \"sink\": {                     \"name\": \"AIRLINE_OPERATOR_CODE\",                     \"type\": \"String\",                     \"physicalType\": \"UTF8\"                 }             },             {                 \"source\": {                     \"name\": \"AIRCRAFT_ICAO_DESG\",                     \"type\": \"String\",                     \"physicalType\": \"String\"                 },                 \"sink\": {                     \"name\": \"AIRCRAFT_ICAO_DESG\",                     \"type\": \"String\",                     \"physicalType\": \"UTF8\"                 }             },             {                 \"source\": {                     \"name\": \"MAX_PAX_SEAT\",                     \"type\": \"Decimal\",                     \"physicalType\": \"Decimal\"                 },                 \"sink\": {                     \"name\": \"MAX_PAX_SEAT\",                     \"type\": \"Decimal\",                     \"physicalType\": \"Decimal\"                 }             },             {                 \"source\": {                     \"name\": \"MAX_AIRFREIGHT\",                     \"type\": \"Decimal\",                     \"physicalType\": \"Decimal\"                 },                 \"sink\": {                     \"name\": \"MAX_AIRFREIGHT\",                     \"type\": \"Decimal\",                     \"physicalType\": \"Decimal\"                 }             },             {                 \"source\": {                     \"name\": \"CREATED_BY\",                     \"type\": \"String\",                     \"physicalType\": \"String\"                 },                 \"sink\": {                     \"name\": \"CREATED_BY\",                     \"type\": \"String\",                     \"physicalType\": \"UTF8\"                 }             },             {                 \"source\": {                     \"name\": \"CREATE_DATETIME\",                     \"type\": \"DateTime\",                     \"physicalType\": \"DateTime\"                 },                 \"sink\": {                     \"name\": \"CREATE_DATETIME\",                     \"type\": \"DateTime\",                     \"physicalType\": \"DateTime\"                 }             },             {                 \"source\": {                     \"name\": \"UPDATED_BY\",                     \"type\": \"String\",                     \"physicalType\": \"String\"                 },                 \"sink\": {                     \"name\": \"UPDATED_BY\",                     \"type\": \"String\",                     \"physicalType\": \"UTF8\"                 }             },             {                 \"source\": {                     \"name\": \"UPDATE_DATETIME\",                     \"type\": \"DateTime\",                     \"physicalType\": \"DateTime\"                 },                 \"sink\": {                     \"name\": \"UPDATE_DATETIME\",                     \"type\": \"DateTime\",                     \"physicalType\": \"DateTime\"                 }             }         ],         \"typeConversion\": true,         \"typeConversionSettings\": {             \"allowDataTruncation\": true,             \"treatBooleanAsNumber\": false         }     }'"
+            },
+            "p_silver_account": {
+                "type": "string",
+                "defaultValue": "adlscaasedmsdevapp001"
+            },
+            "p_silver_lakedb": {
+                "type": "string",
+                "defaultValue": "silver_delta"
+            },
+            "p_silver_delta_db": {
+                "type": "string",
+                "defaultValue": "silver_delta"
+            },
+            "p_silver_target": {
+                "type": "string",
+                "defaultValue": "atss_m_airline_operator"
+            },
+            "p_bronze_archive_path": {
+                "type": "string",
+                "defaultValue": "ATSS/ARCHIVE/"
+            },
+            "p_silver_key": {
+                "type": "string",
+                "defaultValue": "airline_operator_code, aircraft_icao_desg"
+            },
+            "p_silver_scd_type": {
+                "type": "string",
+                "defaultValue": "scd_type2"
+            },
+            "p_file_name": {
+                "type": "string",
+                "defaultValue": "ATSS_M_AIRLINE_OPERATOR_20230529_20230529145959.csv"
+            },
+            "p_datalake_flow_name": {
+                "type": "string",
+                "defaultValue": "ATSS - ATSS_M_AIRLINE_OPERATOR"
+            },
+            "p_silver_landing_name": {
+                "type": "string"
+            },
+            "p_silver_mandatory": {
+                "type": "string"
+            },
+            "p_skip_pk_validation": {
+                "type": "string"
+            }
+        },
+        "variables": {
+            "v_partition_token": {
+                "type": "String"
+            },
+            "v_freshfile_flag": {
+                "type": "Boolean",
+                "defaultValue": false
+            },
+            "v_validdata_flag": {
+                "type": "String",
+                "defaultValue": "0"
+            },
+            "v_silver_invalid_path": {
+                "type": "String",
+                "defaultValue": "parquet-invalid"
+            }
+        },
+        "folder": {
+            "name": "01_main framework"
+        },
+        "annotations": [],
+        "lastPublishTime": "2026-08-11T09:13:32Z"
+    },
+    "type": "Microsoft.Synapse/workspaces/pipelines"
+}
